@@ -27,7 +27,8 @@ import math
 import itertools
 from sklearn.neural_network import MLPClassifier
 from predictor import Data3D
-from predictor import Predictor
+#from predictor import Predictor
+from FakePredictor import Predictor
 from multiprocessing import JoinableQueue
 from application import Application
 
@@ -87,8 +88,8 @@ stillGesture_clf_40 = load('./models/crazyFlyGestures/stillGesture_nn_40.joblib'
 #stillGesture_clf_40 = load('./models/crazyFlyGestures/stillGesture_nn_40.joblib')
 
 #list of predictors
-earlyPredictors = [start_clf_20, startR_clf_20, land_clf_20, landR_clf_20, wp_back_clf_20 , wp_backR_clf_20, wp_del_clf_20, wp_next_clf_20, wp_nextR_clf_20, wp_set_clf_20, stillGesture_clf_20]
-validationPredictors = [start_clf_40, startR_clf_40, land_clf_40, landR_clf_40, wp_back_clf_40 , wp_backR_clf_40, wp_del_clf_40, wp_next_clf_40, wp_nextR_clf_40, wp_set_clf_40, stillGesture_clf_40]
+earlyPredictors = [start_clf_20, startR_clf_20, land_clf_20, landR_clf_20, wp_back_clf_20 , wp_backR_clf_20, wp_del_clf_20, wp_next_clf_20, wp_nextR_clf_20, wp_set_clf_20]
+validationPredictors = [start_clf_40, startR_clf_40, land_clf_40, landR_clf_40, wp_back_clf_40 , wp_backR_clf_40, wp_del_clf_40, wp_next_clf_40, wp_nextR_clf_40, wp_set_clf_40]
 
 #earlyPredictors = [moveDown_clf_20, moveUp_clf_20, pullUp_clf_20, swingAndPointForward_clf_20, rotateLeft_clf_20, rotateRight_clf_20, stillGesture_clf_20]
 #validationPredictors = [moveDown_clf_40, moveUp_clf_40, pullUp_clf_40, swingAndPointForward_clf_40, rotateLeft_clf_40, rotateRight_clf_40, stillGesture_clf_40]
@@ -97,7 +98,7 @@ validationPredictors = [start_clf_40, startR_clf_40, land_clf_40, landR_clf_40, 
 #these must be in the same order as the predictors
 #class_names = ['movPosX', 'movPosY', 'movPosZ', 'movNegX', 'movNegY', 'movNegZ', 'stillGesture']
 
-class_names = ['start', 'startR', 'land', 'landR', 'wp_back', 'wp_backR','wp_del','wp_next','wp_nextR', 'wp_set' 'stillGesture']
+class_names = ['start', 'startR', 'land', 'landR', 'wp_back', 'wp_backR','wp_del','wp_next','wp_nextR', 'wp_set' ]
 
 
 #################################################################################
