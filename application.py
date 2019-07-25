@@ -1,13 +1,13 @@
-#Author: Alexander Schwarz
+#Author: Mirko Mettendorf, Sandro Günsche
 #Version 1.0
 
 #################################################################################
-# Application process
+# Application process for Crazyflie Gesture Controller
+# change this file with the Application.py in the GestureRecognizer Code
 #
-# Template for user Application.
 #
 # This process is intiailized and started in the Main file.
-# Application code must be implemeted in the run function.
+#
 #
 
 
@@ -23,44 +23,40 @@ from cflib.crazyflie.syncLogger import SyncLogger
 import time
 from transitions import Machine
 from multiprocessing import Process, JoinableQueue
-import enum
-import keyboard
-import os
-import logging
-
 from struct import *
 
 
-TACTI_ACC_COMPRESSION = 819
-TACTI_GYRO_COMPRESSION = 32
-
+#Adresse der Crazyflie
 uri = 'radio://0/80/2M'
 
-
+########################################################################
+#Automat für Gesture Mode
 class StateMachine(object):
 
-
+    # Actions der Statemachine
     def start_action(self, cf):
+        # auf 30 Zentimeter steigen
         cf.high_level_commander.takeoff(0.3,0.6)
         print("up")
-
     def land_action(self, cf):
         #sinke auf 30 centimeter
         cf.high_level_commander.land(0.3,2)
         time.sleep(5)
+        #lande
         cf.high_level_commander.stop()
         print("down")
 
     def wp_next_action(self, cf):
+        #fliege nächsten waypoint an
         self.waypoint_pos = self.waypoint_pos +1
         if self.waypoint_pos >= len(self.waypoints):
             self.waypoint_pos = 0
         wp = self.waypoints[self.waypoint_pos]
-        print(wp)
         cf.high_level_commander.go_to(wp[0],wp[1],wp[2],0,5)
         print("wp_next")
 
     def wp_back_action(self, cf):
+        #fliege vorherigen waypoint an
         self.waypoint_pos = self.waypoint_pos -1
         if self.waypoint_pos <0:
             self.waypoint_pos = len(self.waypoints)-1
@@ -70,6 +66,7 @@ class StateMachine(object):
         print("wp_back")
 
     def wp_set_action(self,position):
+        #speicher aktuelle position
         self.waypoints.append(position)
         self.waypoint_pos=len(self.waypoints)-1
         print(self.waypoint_pos)
@@ -77,15 +74,18 @@ class StateMachine(object):
         print("wp_set")
 
     def wp_del_action(self):
+        #lösche letzten waypoint im Array
         del self.waypoints[-1]
         print(self.waypoints)
         print("wp_del")
 
 
 
-
+    #states des Automaten
     states = ['GestureMode', 'WpNext', 'WpBack', 'Start', 'Land']
 
+    ########################################################################
+    #init des Automaten und transitions
     def __init__(self,position):
         self.waypoints = []
         self.waypoint_pos = 0
@@ -95,22 +95,26 @@ class StateMachine(object):
 
         self.machine.add_transition(trigger='wp_next', source='GestureMode', dest='WpNext', after='wp_next_action')
         self.machine.add_transition(trigger='wp_next_retraction', source='WpNext', dest='GestureMode')
+        self.machine.add_transition(trigger='all_retractions', source='WpNext', dest='GestureMode')
 
         self.machine.add_transition(trigger='wp_back', source='GestureMode', dest='WpBack', after='wp_back_action')
         self.machine.add_transition(trigger='wp_back_retraction', source='WpBack', dest='GestureMode')
+        self.machine.add_transition(trigger='all_retractions', source='WpBack', dest='GestureMode')
 
         self.machine.add_transition(trigger='wp_set', source='GestureMode', dest='GestureMode', after='wp_set_action')
         self.machine.add_transition(trigger='wp_del', source='GestureMode', dest='GestureMode', after='wp_del_action')
 
         self.machine.add_transition(trigger='start', source='GestureMode', dest='Start', after='start_action')
         self.machine.add_transition(trigger='start_retraction', source='Start', dest='GestureMode')
+        self.machine.add_transition(trigger='all_retractions', source='Start', dest='GestureMode')
 
         self.machine.add_transition(trigger='land', source='GestureMode', dest='Land', after='land_action')
         self.machine.add_transition(trigger='land_retraction', source='Land', dest='GestureMode')
+        self.machine.add_transition(trigger='all_retractions', source='Land', dest='GestureMode')
 
 
 
-
+# Application Prozess
 class Application(Process):
     def __init__(self, gesture_input_queue, direct_control_queue):
         super(Application, self).__init__()
@@ -119,22 +123,24 @@ class Application(Process):
         self.position = []
         print("init")
 
+    ########################################################################
     def run(self):
         while True:
-            logging.warning('run')
             print("run")
+            #load crazyflie driver
             cflib.crtp.init_drivers(enable_debug_driver=False)
+            #conenct crazyflie
             with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
-                logging.warning('connected')
-                print("connectet")
+                print("connected")
                 cf = scf.cf
+                #activate position commander
                 self.activate_high_level_commander(cf)
-                #self.reset_estimator(cf)
+                self.reset_estimator(cf)
+                #Rückgabe der Position der Crazyflie
                 self.start_position_printing(scf)
-                print(self.position)
+                #start statemachine
                 self.stateMachine = StateMachine(self.position)
-                logging.warning('statemachine')
-                print("statemachine")
+                #start queueHandler
                 self.queueHandler(cf)
 
 
@@ -163,125 +169,100 @@ class Application(Process):
 
         #print("stream: {}, {}, {}, {}".format(evt, roll, pitch, yaw))
 
+    ########################################################################
+
+    #queueHandler
     def queueHandler(self,cf):
-        self.mode =1
-        switch_mode = False
-        print("handlerrun")
-        logging.warning('handlerrun')
+        self.flag = False
+        self.land = True
+        lastgesture ='undefined'
+        counterstill = 0
         while True:
             if not self.gesture_input_queue.empty():
-                    print("gesture mode")
-                    #self.beep()
-                    #self.beep()
                     data = self.gesture_input_queue.get()
-                    if (data[0][1] != 'none') and (data[0][0]== 'vali'):
-                        print(data)
-                        if data[0][1]=='start':
-                            #self.beep()
-                            self.stateMachine.start(cf)
-                            #time.sleep(5)
-                        if data[0][1]=='startR':
-                            #self.beep()
-                            self.stateMachine.start_retraction()
-                        if data[0][1]=='land':
-                            #self.beep()
-                            self.stateMachine.land(cf)
-                            #time.sleep(5)
-                            print(self.stateMachine.waypoints)
-                        if data[0][1]=='landR':
-                            #self.beep()
-                            self.stateMachine.land_retraction()
-                        if data[0][1]=='wp_back':
-                            #self.beep()
-                            self.stateMachine.wp_back(cf)
-                            #time.sleep(5)
-                        if data[0][1]=='wp_backR':
-                            #self.beep()
-                            self.stateMachine.wp_back_retraction()
-                        if data[0][1]=='wp_del':
-                            #self.beep()
-                            self.stateMachine.wp_del()
-                        if data[0][1]=='wp_next':
-                            #self.beep()
-                            self.stateMachine.wp_next(cf)
-                            #time.sleep(5)
-                        if data[0][1]=='wp_nextR':
-                            #self.beep()
-                            self.stateMachine.wp_next_retraction()
-                        if data[0][1]=='wp_set':
-                            #self.beep()
-                            self.stateMachine.wp_set(self.position)
+                    if (data[0][1] != 'none') and (data[0][0] == 'early'):
+                        if lastgesture != data[0][1]:
+                            # observing gesture first time
+                            lastgesture = data[0][1]
+                            print("lastgesture: " + lastgesture + " state: " + self.stateMachine.state)
+                            if data[0][1] =='stillGesture':
+                                counterstill= counterstill +1
+                                if counterstill==3:
+                                    counterstill =0
+                                    self.stateMachine.all_retractions()
+                            if data[0][1]=='start':
+                                self.stateMachine.start(cf)
+                                self.land = False
+                            if data[0][1]=='startR':
+                                self.stateMachine.start_retraction()
+                            if data[0][1]=='land':
+                                self.stateMachine.land(cf)
+                                print(self.stateMachine.waypoints)
+                                self.land = True
+                            if data[0][1]=='landR':
+                                self.stateMachine.land_retraction()
+                            if data[0][1]=='wp_back':
+                                self.stateMachine.wp_back(cf)
+                            if data[0][1]=='wp_backR':
+                                self.stateMachine.wp_back_retraction()
+                            if data[0][1]=='wp_del':
+                                self.stateMachine.wp_del()
+                            if data[0][1]=='wp_next':
+                                self.stateMachine.wp_next(cf)
+                            if data[0][1]=='wp_nextR':
+                                self.stateMachine.wp_next_retraction()
+                            if data[0][1]=='wp_set':
+                                self.stateMachine.wp_set(self.position)
                     self.gesture_input_queue.task_done()
             if not self.direct_control_queue.empty():
-                    print("direct Mode")
-                    #self.beep()
-                    #self.beep()
-                    #self.beep()
                     data = self.direct_control_queue.get()
                     self.unpackDirectControFormat(data)
-                    if(self.position==[]):
+                    if self.land:
                         cf.high_level_commander.takeoff(0.3, 0.6)
                         print("takeoff")
-                        time.sleep(1)
-                    if(self.evt==1):
-                        #self.beep()
-                        #print(self.position)
-                        cf.high_level_commander.go_to(0.0, 0.3, 0.0, 0.0, duration_s=0.3, relative=True)
-                        time.sleep(1)
+                        self.land =False
+                    if(self.evt==2 and self.flag ==False):
+                        cf.high_level_commander.go_to(0.0, 0.1, 0.0, 0.0, duration_s=0.1, relative=True)
                         print("right")
-                        print(self.position)
-                    if (self.evt == 2):
-                        #self.beep()
+                        self.flag = True
+                    if (self.evt == 1 and self.flag ==False):
                         cf.high_level_commander.go_to(0.0, -0.1, 0.0, 0.0, duration_s=0.1, relative=True)
                         print("left")
-                        logging.warning('left')
-                        time.sleep(1)
-                    if (self.evt == 4):
-                        #self.beep()
+                        self.flag = True
+                    if (self.evt == 4 and self.flag ==False):
                         cf.high_level_commander.go_to(-0.1, 0.0, 0.0, 0.0, duration_s=0.1, relative=True)
                         print("back")
-                        logging.warning('back')
-                        time.sleep(1)
-                    if (self.evt == 8):
-                        #self.beep()
+                        self.flag = True
+                    if (self.evt == 8 and self.flag ==False):
                         cf.high_level_commander.go_to(0.1,0.0,0.0,0.0,duration_s=0.1,relative=True)
                         print("forward")
-                        logging.warning('forward')
-                        time.sleep(1)
-                    if (self.evt == 5):
-                        #self.beep()
+                        self.flag = True
+                    if (self.evt == 5 and self.flag ==False):
                         cf.high_level_commander.go_to(-0.1, 0.1, 0.0, 0.0, duration_s=0.1, relative=True)
                         print("back_right")
-                        time.sleep(1)
-                    if (self.evt == 6):
-                        #self.beep()
+                        self.flag = True
+                    if (self.evt == 6 and self.flag ==False):
+                        self.flag = True
                         cf.high_level_commander.go_to(-0.1, -0.1, 0.0, 0.0, duration_s=0.1, relative=True)
                         print("back_left")
-                        time.sleep(1)
-                    if (self.evt == 9):
-                        #self.beep()
+                        self.flag = True
+                    if (self.evt == 9 and self.flag ==False):
                         cf.high_level_commander.go_to(0.1, 0.1, 0.0, 0.0, duration_s=0.1, relative=True)
                         print("forward_right")
-                        time.sleep(1)
-                    if (self.evt == 10):
-                        #self.beep()
+                        self.flag = True
+                    if (self.evt == 10 and self.flag ==False):
+                        self.flag = True
                         cf.high_level_commander.go_to(0.1, 0.0, 0.0, 0.0, duration_s=0.1, relative=True)
                         print("forward_left")
-                        time.sleep(1)
+                    if(self.evt ==0 and self.flag == True):
+                        self.flag = False
                     if (self.b3==1.0):
-                        #self.beep()
                         cf.high_level_commander.go_to(0, 0, 0.1, 0.0, duration_s=0.1, relative=True)
                         print("up")
-                        logging.warning('up')
-                        time.sleep(1)
                     if (self.b2==1.0):
-                        #self.beep()
                         cf.high_level_commander.go_to(0, 0, -0.1, 0.0, duration_s=0.1, relative=True)
                         print("down")
-                        logging.warning('down')
-                        time.sleep(1)
                     if (self.b1 ==1.0):
-                        #self.beep()
                         self.stateMachine.land_action(cf)
                         print(self.stateMachine.waypoints)
                         break
@@ -352,7 +333,3 @@ class Application(Process):
 
     def activate_high_level_commander(self,cf):
         cf.param.set_value('commander.enHighLevel', '1')
-
-    def beep(self):
-        # 1sek,440hz
-        os.system('play -nq -t alsa synth {} sine {}'.format(1, 440))

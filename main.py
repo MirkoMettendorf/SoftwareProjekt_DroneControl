@@ -2,7 +2,7 @@
 #Version 1.0
 
 #################################################################################
-# Main file for the gesture recognizer
+# Main file for the gesture recognizer(Version with the crazyflie gesture models)
 #
 # In here the Bluetooth Low Energy (BLE) Communication to the Tactigon will be
 # initialized. The callback of the streaming Characteristic is implemented in
@@ -27,8 +27,8 @@ import math
 import itertools
 from sklearn.neural_network import MLPClassifier
 from predictor import Data3D
-#from predictor import Predictor
-from FakePredictor import Predictor
+from predictor import Predictor
+#from FakePredictor import Predictor
 from multiprocessing import JoinableQueue
 from application import Application
 
@@ -209,7 +209,6 @@ pred = Predictor(wrapper_to_predictor_queue, predictor_to_application_queue, dir
 pred.start()
 app = Application(predictor_to_application_queue, direct_control_queue)
 app.start()
-print("test")
 
 #main loop
 done = False

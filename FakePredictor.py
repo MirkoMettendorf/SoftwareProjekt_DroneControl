@@ -1,11 +1,12 @@
-# Author: Alexander Schwarz
+# Author: Mirko Mettendorf, Sandro Günsche
 # Version 1.0
 
 #################################################################################
-# Predictor process
+# Simulated Predictor process
 #
 # This process is intiailized and started in the Main file
-#
+# Change the import in Main.py from "from predictor import Predictor"
+# to "from FakePredictor import Predictor" to use this
 
 
 #################################################################################
@@ -13,11 +14,8 @@
 #
 
 import numpy as np
-import binascii, sys, json, logging
 from struct import unpack
 from multiprocessing import Process, JoinableQueue
-import enum
-import time
 import keyboard
 
 
