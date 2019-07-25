@@ -88,8 +88,8 @@ stillGesture_clf_40 = load('./models/crazyFlyGestures/stillGesture_nn_40.joblib'
 #stillGesture_clf_40 = load('./models/crazyFlyGestures/stillGesture_nn_40.joblib')
 
 #list of predictors
-earlyPredictors = [start_clf_20, startR_clf_20, land_clf_20, landR_clf_20, wp_back_clf_20 , wp_backR_clf_20, wp_del_clf_20, wp_next_clf_20, wp_nextR_clf_20, wp_set_clf_20]
-validationPredictors = [start_clf_40, startR_clf_40, land_clf_40, landR_clf_40, wp_back_clf_40 , wp_backR_clf_40, wp_del_clf_40, wp_next_clf_40, wp_nextR_clf_40, wp_set_clf_40]
+earlyPredictors = [start_clf_20, startR_clf_20, land_clf_20, landR_clf_20, wp_back_clf_20 , wp_backR_clf_20, wp_del_clf_20, wp_next_clf_20, wp_nextR_clf_20, wp_set_clf_20,stillGesture_clf_20]
+validationPredictors = [start_clf_40, startR_clf_40, land_clf_40, landR_clf_40, wp_back_clf_40 , wp_backR_clf_40, wp_del_clf_40, wp_next_clf_40, wp_nextR_clf_40, wp_set_clf_40,stillGesture_clf_40]
 
 #earlyPredictors = [moveDown_clf_20, moveUp_clf_20, pullUp_clf_20, swingAndPointForward_clf_20, rotateLeft_clf_20, rotateRight_clf_20, stillGesture_clf_20]
 #validationPredictors = [moveDown_clf_40, moveUp_clf_40, pullUp_clf_40, swingAndPointForward_clf_40, rotateLeft_clf_40, rotateRight_clf_40, stillGesture_clf_40]
@@ -98,7 +98,7 @@ validationPredictors = [start_clf_40, startR_clf_40, land_clf_40, landR_clf_40, 
 #these must be in the same order as the predictors
 #class_names = ['movPosX', 'movPosY', 'movPosZ', 'movNegX', 'movNegY', 'movNegZ', 'stillGesture']
 
-class_names = ['start', 'startR', 'land', 'landR', 'wp_back', 'wp_backR','wp_del','wp_next','wp_nextR', 'wp_set' ]
+class_names = ['start', 'startR', 'land', 'landR', 'wp_back', 'wp_backR','wp_del','wp_next','wp_nextR', 'wp_set','stillGesture']
 
 
 #################################################################################
@@ -162,7 +162,7 @@ def myStreamCB(cHandle, data):
             mode_switch_flag = False
 
     wrapper_to_predictor_queue.put(data)
-    
+
 
 def check_mode_switch(data):
     mode = data[19]
@@ -191,7 +191,7 @@ btComm.setStreamCallBack(myStreamCB)
 
 #connect to TACTI
 btComm.stayConnected()
-#time.sleep(3)
+time.sleep(3)
 
 
 
@@ -201,7 +201,7 @@ btComm.setDimension(DIMENSION.DIM_3D)
 btComm.setUsage(USAGE.TSKIN_RIGHT)
 btComm.setGNorm(GNORM.NORM)
 #btComm.setThresholds(10, 20, 30)
-btComm.setLed(LED_MODE.FAST_BLINK, LED_COLOR.RED) 
+btComm.setLed(LED_MODE.FAST_BLINK, LED_COLOR.RED)
 btComm.startSendingData()
 
 #create and start processes for the predictor and the application
@@ -209,6 +209,7 @@ pred = Predictor(wrapper_to_predictor_queue, predictor_to_application_queue, dir
 pred.start()
 app = Application(predictor_to_application_queue, direct_control_queue)
 app.start()
+print("test")
 
 #main loop
 done = False
@@ -217,4 +218,5 @@ while not done:
     #automatically reconnect in case of connection lost
     #In case of reconnection, previous settings (mode, dimension, ...) 
     #are automatically re-applied
-    btComm.stayConnected()
+    #btComm.stayConnected()
+    pass

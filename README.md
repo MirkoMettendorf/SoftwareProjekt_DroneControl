@@ -1,1 +1,0 @@
-# SoftwareProjekt_DroneControl

@@ -71,7 +71,7 @@ def unpack3Dformat(data):
     
     
     f.write("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}\n".format(timestamp, accX, accY, accZ, gyroX, gyroY, gyroZ, b4))
-    #print("stream: {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}".format(timestamp, accX, accY, accZ, gyroX, gyroY, gyroZ, b1, b2, b3, b4))
+    print("stream: {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}".format(timestamp, accX, accY, accZ, gyroX, gyroY, gyroZ, b1, b2, b3, b4))
     print("stream: ",b4)
 
 
@@ -106,7 +106,7 @@ time.sleep(3)
 
 
 #some inits
-btComm.setMode(MODE.TRAINING)
+btComm.setMode(MODE.APPLICATION)
 btComm.setDimension(DIMENSION.DIM_3D)
 btComm.setUsage(USAGE.TSKIN_RIGHT)
 #btComm.setThresholds(10, 20, 30)
